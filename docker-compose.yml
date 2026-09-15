@@ -1,0 +1,7 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ingestor-rabbitmq
+    ports:
+      - "5672:5672"   # protocolo AMQP (lo usa el Ingestor)
+      - "15672:15672" # panel de administración: http://localhost:15672 (guest/guest)

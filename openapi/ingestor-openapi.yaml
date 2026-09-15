@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: Chat Ingestor API
+  description: >
+    Servicio encargado de conectarse al chat en vivo de Twitch (IRC) y reenviar
+    cada mensaje al Motor de Moderación para su análisis en tiempo real.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Entorno local (Docker Compose)
+
+tags:
+  - name: listeners
+    description: Control de los canales de Twitch que el ingestor está escuchando
+  - name: health
+
+paths:
+  /listeners:
+    get:
+      tags: [listeners]
+      summary: Lista los canales de Twitch actualmente escuchados
+      responses:
+        '200':
+          description: Lista de listeners activos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Listener'
+    post:
+      tags: [listeners]
+      summary: Empieza a escuchar el chat de un canal de Twitch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListenerRequest'
+      responses:
+        '201':
+          description: Listener creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listener'
+        '400':
+          description: Solicitud inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Ya existe un listener activo para ese canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /listeners/{channelId}:
+    delete:
+      tags: [listeners]
+      summary: Detiene la escucha de un canal de Twitch
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Listener detenido
+        '404':
+          description: No se encontró un listener activo para ese canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      tags: [health]
+      summary: Estado del servicio
+      responses:
+        '200':
+          description: El servicio está funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+
+components:
+  schemas:
+    CreateListenerRequest:
+      type: object
+      required: [channelId]
+      properties:
+        channelId:
+          type: string
+          description: Nombre del canal de Twitch
+          example: mi_canal_twitch
+
+    Listener:
+      type: object
+      properties:
+        channelId:
+          type: string
+          example: mi_canal_twitch
+        status:
+          type: string
+          enum: [CONNECTING, LISTENING, DISCONNECTED]
+          example: LISTENING
+        connectedSince:
+          type: string
+          format: date-time
+
+    ChatMessage:
+      type: object
+      description: Mensaje reenviado por el ingestor al Motor de Moderación (POST /api/v1/analyze)
+      required: [messageId, channelId, userId, username, text, timestamp]
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        channelId:
+          type: string
+          example: mi_canal_twitch
+        userId:
+          type: string
+          example: "123456789"
+        username:
+          type: string
+          example: usuario_random
+        text:
+          type: string
+          example: hola a todos!
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: El campo channelId no puede estar vacío.
+        field:
+          type: string
+          nullable: true
+          example: channelId
+        path:
+          type: string
+          example: /api/v1/listeners
+        timestamp:
+          type: string
+          format: date-time
