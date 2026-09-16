@@ -2,10 +2,22 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'node20' // Configurar esta tool en Jenkins > Global Tool Configuration
+        nodejs 'node20'
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                echo "Build #${BUILD_NUMBER} - Branch: ${env.BRANCH_NAME ?: 'N/A'}"
+                sh 'ls -la'
+            }
+        }
+
         stage('Install') {
             steps {
                 sh 'npm ci'
@@ -24,16 +36,17 @@ pipeline {
             }
         }
 
-        stage('Docker Build') {
-            steps {
-                sh 'docker build -t twitchspamdetector/ingestor:${BUILD_NUMBER} .'
-            }
-        }
     }
 
     post {
         always {
             cleanWs()
+        }
+        success {
+            echo "✅ Build #${BUILD_NUMBER} OK"
+        }
+        failure {
+            echo "❌ Build #${BUILD_NUMBER} FALLÓ"
         }
     }
 }
